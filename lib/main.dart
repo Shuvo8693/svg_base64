@@ -1,3 +1,5 @@
+import 'package:check_svg/widgets/custom_screen_util.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:convert';
@@ -10,10 +12,12 @@ void main() {
 // Method 1: Extract and display the embedded base64 image directly
 class ExtractBase64ImageWidget extends StatefulWidget {
   final String svgAssetPath; // Path to your SVG in assets folder
+  final double? height;
+  final double? width;
 
   const ExtractBase64ImageWidget({
     super.key,
-    required this.svgAssetPath,
+    required this.svgAssetPath, this.height, this.width,
   });
 
   @override
@@ -34,7 +38,14 @@ class _ExtractBase64ImageWidgetState extends State<ExtractBase64ImageWidget> {
   Future<void> _loadAndExtractImage() async {
     try {
       // Load SVG content from assets
-      final String svgContent = await DefaultAssetBundle.of(context).loadString(widget.svgAssetPath);
+      String svgContent = await DefaultAssetBundle.of(context).loadString(widget.svgAssetPath);
+
+      // Fix the transform matrix issue in kariowatch.svg
+      // Replace negative Y translation with 0
+      svgContent = svgContent.replaceAll(
+        RegExp(r'transform="matrix\(([\d.]+)\s+0\s+0\s+([\d.]+)\s+0\s+-[\d.]+\)"'),
+        'transform="matrix(${1} 0 0 ${2} 0 0)"',
+      );
 
       // Extract base64 string from the SVG
       // Pattern to find base64 in xlink:href attribute
@@ -76,21 +87,20 @@ class _ExtractBase64ImageWidgetState extends State<ExtractBase64ImageWidget> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Center(child: CircularProgressIndicator());
+      return Center(child: CupertinoActivityIndicator());
     }
 
     if (errorMessage != null) {
       return Center(child: Text(errorMessage!));
     }
-
     if (imageBytes != null) {
       return Container(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(2.sp),
         child: Image.memory(
           imageBytes!,
           fit: BoxFit.contain,
-          height: 100,
-          width: 100,
+          height: widget.height ?? 65.h,
+          width: widget.height ?? 65.w,
           errorBuilder: (context, error, stackTrace) {
             return Center(
               child: Text('Error displaying image'),
@@ -99,50 +109,10 @@ class _ExtractBase64ImageWidgetState extends State<ExtractBase64ImageWidget> {
         ),
       );
     }
-
     return Center(child: Text('No image to display'));
   }
 }
 
-// Method 2: Try to render the SVG directly (may not work with embedded images)
-class DirectSvgWidget extends StatelessWidget {
-  final String svgAssetPath;
-
-  const DirectSvgWidget({
-    super.key,
-    required this.svgAssetPath,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: SvgPicture.asset(
-        svgAssetPath,
-        fit: BoxFit.contain,
-        placeholderBuilder: (BuildContext context) => Container(
-          padding: const EdgeInsets.all(30.0),
-          child: const CircularProgressIndicator(),
-        ),
-        // This will show if the SVG fails to render
-        // (which is likely with embedded base64 images)
-        errorBuilder: (context, error, stackTrace) {
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error, size: 48, color: Colors.red),
-              SizedBox(height: 16),
-              Text(
-                'SVG contains embedded image.\nUsing fallback method...',
-                textAlign: TextAlign.center,
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
 
 // Main app showing both methods
 class MyApp extends StatelessWidget {
@@ -150,15 +120,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    ScreenUtil.init(context);
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: Text('SVG with Base64 Image')),
-        body: Column(
-          children: [
-            ExtractBase64ImageWidget(
-              svgAssetPath: 'assets/images/logo.svg',
-            ),
-        ],)
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ExtractBase64ImageWidget(
+                svgAssetPath: 'assets/images/kario_img.svg',
+                height: 400,
+                width: 250,
+              ),
+          ],),
+        )
       ),
     );
   }
